@@ -1,0 +1,26 @@
+{
+  "name": "@shadow-shield/core",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DeFi security tool using Chainlink Runtime Environment (CRE) and Tenderly Virtual TestNets to simulate transactions with time-travel logic.",
+  "author": "0xEunum <github.com/0xEunum>",
+  "workspaces": [
+    "cre/shadow-workflow"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "cre:simulate": "npm run simulate --workspace=cre/shadow-workflow"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "chainlink",
+    "cre",
+    "tenderly",
+    "security",
+    "defi",
+    "simulation",
+    "shadow-shield"
+  ]
+}
