@@ -131,8 +131,9 @@ contract SimulationJobQueue is ReceiverTemplate, ERC20 {
     ///         Decodes a JobReport and stores + emits the validated job.
     /// @dev    Keep minimal: decode → validate → store → emit.
     function _processReport(bytes calldata report) internal override {
-        JobReport memory rep = abi.decode(report, (JobReport));
-        _enqueueJob(rep);
+        (uint256 runId, address strategy, address caller, string memory explorerUrl) =
+            abi.decode(report, (uint256, address, address, string));
+        _enqueueJob(runId, strategy, caller, explorerUrl);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -142,26 +143,26 @@ contract SimulationJobQueue is ReceiverTemplate, ERC20 {
     /// @notice Validates and stores the incoming job, then emits JobEnqueued.
     /// @dev    s_jobExists check prevents wf-listener retries from double-enqueuing.
     ///         runId 0 is treated as invalid (SimulationRegistry starts at 1).
-    function _enqueueJob(JobReport memory rep) private {
+    function _enqueueJob(uint256 _runId, address _strategy, address _caller, string memory _explorerUrl) private {
         // runId 0 is reserved as null in SimulationRegistry
-        require(rep.runId != 0, "SimulationJobQueue: invalid runId");
+        require(_runId != 0, "SimulationJobQueue: invalid runId");
 
         // Idempotency: reject duplicate enqueue (e.g., wf-listener retry)
-        if (s_jobExists[rep.runId]) revert SimulationJobQueue__JobAlreadyEnqueued();
+        if (s_jobExists[_runId]) revert SimulationJobQueue__JobAlreadyEnqueued();
 
         // Mark as enqueued before writing storage (checks-effects-interactions)
-        s_jobExists[rep.runId] = true;
+        s_jobExists[_runId] = true;
 
         // Store the full validated job
-        s_jobs[rep.runId] = Job({
-            runId: rep.runId,
-            strategy: rep.strategy,
-            caller: rep.caller,
-            explorerUrl: rep.explorerUrl,
+        s_jobs[_runId] = Job({
+            runId: _runId,
+            strategy: _strategy,
+            caller: _caller,
+            explorerUrl: _explorerUrl,
             enqueuedAt: uint64(block.timestamp),
             status: JobStatus.Queued
         });
 
-        emit JobEnqueued(rep.runId, rep.strategy, rep.caller, rep.explorerUrl);
+        emit JobEnqueued(_runId, _strategy, _caller, _explorerUrl);
     }
 }
