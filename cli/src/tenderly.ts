@@ -21,17 +21,23 @@ function baseUrl() {
 
 function parseVNet(data: TenderlyVNetResponse): VNetDetails {
   const adminRpc = data.rpcs.find((r) => r.name === "Admin RPC")?.url ?? "";
+  const adminRpcWss =
+    data.rpcs.find((r) => r.name === "Admin websocket RPC")?.url ?? "";
   const publicRpc = data.rpcs.find((r) => r.name === "Public RPC")?.url ?? "";
+  const publicRpcWss =
+    data.rpcs.find((r) => r.name === "Public websocket RPC")?.url ?? "";
   const accounts = data.virtual_network_config.accounts.map((a) => a.address);
+  const publicRpcUuid = publicRpc.split("/").pop() ?? data.id;
+  const explorerUrl = `https://dashboard.tenderly.co/explorer/vnet/${publicRpcUuid}`;
 
   return {
     id: data.id,
     displayName: data.display_name,
     adminRpc,
-    adminRpcWss: adminRpc.replace("https://", "wss://"),
+    adminRpcWss,
     publicRpc,
-    publicRpcWss: publicRpc.replace("https://", "wss://"),
-    explorerUrl: `https://dashboard.tenderly.co/explorer/vnet/${data.id}`,
+    publicRpcWss,
+    explorerUrl,
     chainId: data.virtual_network_config.chain_config.chain_id,
     forkBlock: parseInt(data.fork_config.block_number, 16),
     accounts,
