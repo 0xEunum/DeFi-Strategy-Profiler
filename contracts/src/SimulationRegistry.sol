@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {ReceiverTemplate} from "./interfaces/ReceiverTemplate.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @title  SimulationRegistry
 /// @author DeFi Strategy Profiler
@@ -19,7 +18,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 ///         when assigning large structs:
 ///           s_runIdentity  → context fields (addresses, status, explorerUrl)
 ///           s_runOutcome   → numerical results (gas, amounts, revert hash)
-contract SimulationRegistry is ReceiverTemplate, ERC20 {
+contract SimulationRegistry is ReceiverTemplate {
     // ─────────────────────────────────────────────────────────────────────────
     // Errors
     // ─────────────────────────────────────────────────────────────────────────
@@ -156,7 +155,7 @@ contract SimulationRegistry is ReceiverTemplate, ERC20 {
     /// @param _forwarderAddress CRE forwarder contract on this chain (Sepolia).
     ///        ReceiverTemplate restricts onReport() to only this address,
     ///        ensuring only a verified CRE workflow can write simulation results.
-    constructor(address _forwarderAddress) ReceiverTemplate(_forwarderAddress) ERC20("MyTokne", "MT") {
+    constructor(address _forwarderAddress) ReceiverTemplate(_forwarderAddress) {
         if (_forwarderAddress == address(0)) revert SimulationRegistry__InvalidAddress();
     }
 

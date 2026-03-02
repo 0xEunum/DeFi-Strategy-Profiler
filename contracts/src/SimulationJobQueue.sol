@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {ReceiverTemplate} from "./interfaces/ReceiverTemplate.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @title  SimulationJobQueue
 /// @author DeFi Strategy Profiler
@@ -29,7 +28,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 ///
 ///         This prevents race conditions and gives each workflow a clean,
 ///         dedicated trigger with no shared event ambiguity.
-contract SimulationJobQueue is ReceiverTemplate, ERC20 {
+contract SimulationJobQueue is ReceiverTemplate {
     // ─────────────────────────────────────────────────────────────────────────
     // Errors
     // ─────────────────────────────────────────────────────────────────────────
@@ -108,7 +107,7 @@ contract SimulationJobQueue is ReceiverTemplate, ERC20 {
 
     /// @param _forwarderAddress CRE forwarder on this chain (Sepolia).
     ///        Inherited from ReceiverTemplate — only this address can call onReport().
-    constructor(address _forwarderAddress) ReceiverTemplate(_forwarderAddress) ERC20("MyToken", "MT") {
+    constructor(address _forwarderAddress) ReceiverTemplate(_forwarderAddress) {
         if (_forwarderAddress == address(0)) revert SimulationJobQueue__InvalidAddress();
     }
 
