@@ -55,6 +55,7 @@ export type StrategyDeployment = {
   address: string;
   strategyIndex: number;
   strategyName: string;
+  verified: boolean;
 };
 
 export type SimulationRequest = {
