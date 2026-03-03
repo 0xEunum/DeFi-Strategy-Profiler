@@ -17,7 +17,7 @@
 # ==========================================================================
 staging-settings:
   user-workflow:
-    workflow-name: "listener-workflow-staging"
+    workflow-name: "executor-workflow-staging"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "../config.staging.json"
@@ -26,7 +26,7 @@ staging-settings:
 # ==========================================================================
 production-settings:
   user-workflow:
-    workflow-name: "listener-workflow-production"
+    workflow-name: "executor-workflow-production"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "../config.production.json"
