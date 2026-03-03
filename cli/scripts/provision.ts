@@ -6,19 +6,22 @@ async function main() {
   const index = parseInt(process.argv[2] ?? "0");
 
   if (isNaN(index) || !(index in STRATEGY_NAMES)) {
-    console.error("❌ Usage: npm run provision:0 | provision:1 | provision:2");
+    console.error(
+      `❌ Usage: npm run provision -- 0 | 1 | 2\n` +
+        `   0 = EthToUsdcSwapStrategy\n` +
+        `   1 = EthToUsdcDaiMultiHopStrategy\n` +
+        `   2 = FailingSlippageStrategy`,
+    );
     process.exit(1);
   }
 
   console.log("🚀 Starting provision flow...\n");
-  // Step 1 — get vNet details for explorerUrl
-  const vnet = await getOrCreateVnet();
 
-  // Step 2 — deploy + verify strategy on vNet
-  const deployment = await deployStrategy(index);
+  // Step 1 — get or create vNet (syncs configs automatically) & deploy strategy on vNet (cached if already deployed)
+  const { deployment, vnet } = await deployStrategy(index);
 
-  // Step 3 — call requestSimulation on Sepolia Registry
-  console.log("📡 Calling requestSimulation() on Sepolia Registry...");
+  // Step 2 — request simulation on Sepolia
+  console.log("\n📡 Calling requestSimulation() on Sepolia...");
   const sim = await requestSimulation(deployment.address, vnet.explorerUrl);
 
   console.log(`✅ Queued → runId: ${sim.runId.toString()}`);
@@ -31,14 +34,14 @@ async function main() {
     `\n💡 Paste txHash into CRE log trigger to wake listener-workflow\n`,
   );
 
-  // Step 4 — poll for result (if POLL_FOR_RESULT=true)
+  // Step 3 — poll for result (opt-in via POLL_FOR_RESULT=true in .env)
   if (process.env.POLL_FOR_RESULT === "true") {
-    console.log("⏳ Polling for simulation report...");
+    console.log("\n⏳ Polling for simulation report...");
     const report = await pollForReport(sim.runId);
     printReport(report);
   } else {
     console.log(
-      "✅ Done. Set POLL_FOR_RESULT=true in .env to auto-poll for results.",
+      "\n💡 Set POLL_FOR_RESULT=true in .env to auto-poll for results.",
     );
   }
 }

@@ -1,116 +1,85 @@
-import { readFileSync, existsSync, readdirSync } from "fs";
-import * as path from "path";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   createPublicClient,
   createWalletClient,
   http,
   defineChain,
+  formatEther,
+  formatUnits,
+  keccak256,
+  toBytes,
 } from "viem";
 import { requireEnv } from "../utils";
 import type { SimulationRequest } from "../types";
 import { SIMULATION_REGISTRY_ABI } from "../abis/simulationRegistry_abi";
+import { readFileSync, existsSync } from "fs";
+import path from "path";
 
-const CONTRACTS = path.resolve(__dirname, "../../contracts");
-
-function readSepoliaBroadcastAddresses(): {
+// ── Contract addresses ─────────────────────────────────────────────────────
+// Default: use shared deployed contracts from root/.env
+// Custom:  deploy your own SimulationRegistry + SimulationJobQueue on Sepolia,
+//          then update REGISTRY_ADDRESS and JOB_QUEUE_ADDRESS in root/.env
+//          and registryAddress + jobQueueAddress in cre/config.staging.json
+function getContractAddresses(): {
   registry: `0x${string}`;
   jobQueue: `0x${string}`;
 } {
   return {
-    registry: findContractAddressFromBroadcast(
-      "DeploySepolia.s.sol",
-      11155111,
-      "SimulationRegistry",
-    ),
-    jobQueue: findContractAddressFromBroadcast(
-      "DeploySepolia.s.sol",
-      11155111,
-      "SimulationJobQueue",
-    ),
+    registry: requireEnv("REGISTRY_ADDRESS") as `0x${string}`,
+    jobQueue: requireEnv("JOB_QUEUE_ADDRESS") as `0x${string}`,
   };
 }
 
-function findContractAddressFromBroadcast(
-  scriptName: string, // e.g. "DeploySepolia.s.sol"
-  chainId: number, // e.g. 11155111
-  contractName: string, // e.g. "SimulationRegistry"
-): `0x${string}` {
-  const broadcastDir = path.join(
-    CONTRACTS,
-    `broadcast/${scriptName}/${chainId}`,
-  );
+// ── Chain + client helpers ─────────────────────────────────────────────────
 
-  if (!existsSync(broadcastDir)) {
-    throw new Error(
-      `Broadcast dir missing: ${broadcastDir}\nDeploy contracts on chain ${chainId} first`,
-    );
-  }
-
-  // Get all run json files, sorted newest first (by filename timestamp)
-  const files = readdirSync(broadcastDir)
-    .filter((f) => f.endsWith(".json") && f !== "run-latest.json")
-    .sort()
-    .reverse(); // newest timestamp first
-
-  // Also check run-latest.json first as fast path
-  const allFiles = ["run-latest.json", ...files];
-
-  for (const file of allFiles) {
-    const filePath = path.join(broadcastDir, file);
-    if (!existsSync(filePath)) continue;
-
-    const broadcast = JSON.parse(readFileSync(filePath, "utf8"));
-    const tx = broadcast.transactions?.find(
-      (t: any) =>
-        t.contractName === contractName && t.transactionType === "CREATE",
-    );
-
-    if (tx?.contractAddress) {
-      return tx.contractAddress as `0x${string}`;
-    }
-  }
-
-  throw new Error(
-    `Could not find ${contractName} in any broadcast file under:\n${broadcastDir}`,
-  );
-}
-
-function getChain(chainId: number, rpcUrl: string) {
+function sepolia(rpcUrl: string) {
   return defineChain({
-    id: chainId,
-    name: chainId === 11155111 ? "sepolia" : "vnet",
+    id: 11155111,
+    name: "sepolia",
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [rpcUrl] } },
   });
 }
 
-function getSignedClients(rpcUrl: string, chainId: number) {
-  const chain = getChain(chainId, rpcUrl);
-  const account = privateKeyToAccount(
-    requireEnv("PRIVATE_KEY") as `0x${string}`,
-  );
+function getSignedClients(rpcUrl: string) {
+  const chain = sepolia(rpcUrl);
+  const privateKey = requireEnv("CRE_ETH_PRIVATE_KEY");
+  const account = privateKeyToAccount(`0x${privateKey}`);
+
   const wallet = createWalletClient({
     account,
     chain,
     transport: http(rpcUrl),
   });
-  const pub = createPublicClient({ chain, transport: http(rpcUrl) });
+
+  const pub = createPublicClient({
+    chain,
+    transport: http(rpcUrl),
+  });
+
   return { wallet, pub, account };
 }
 
-function getPublicClient(rpcUrl: string, chainId: number) {
-  const chain = getChain(chainId, rpcUrl);
-  return createPublicClient({ chain, transport: http(rpcUrl) });
+function getPublicClient(rpcUrl: string) {
+  return createPublicClient({
+    chain: sepolia(rpcUrl),
+    transport: http(rpcUrl),
+  });
 }
+
+const JOB_ENQUEUED_TOPIC = keccak256(
+  toBytes("JobEnqueued(uint256,address,address,string)"),
+);
+
+// ── requestSimulation ──────────────────────────────────────────────────────
 
 export async function requestSimulation(
   strategyAddr: string,
   explorerUrl: string,
 ): Promise<SimulationRequest> {
-  const { registry } = readSepoliaBroadcastAddresses();
+  const { registry } = getContractAddresses();
   const rpcUrl = requireEnv("SEPOLIA_RPC_URL");
-  const { wallet, pub, account } = getSignedClients(rpcUrl, 11155111);
+  const { wallet, pub, account } = getSignedClients(rpcUrl);
 
   const hash = await wallet.writeContract({
     address: registry,
@@ -121,7 +90,10 @@ export async function requestSimulation(
   });
 
   const receipt = await pub.waitForTransactionReceipt({ hash });
-  const runId = BigInt(receipt.logs[0]?.topics[1] ?? "0x0");
+
+  const jobLog = receipt.logs.find((l) => l.topics[0] === JOB_ENQUEUED_TOPIC);
+  if (!jobLog) throw new Error("JobEnqueued event not found in receipt");
+  const runId = BigInt(jobLog.topics[1] ?? "0x0");
 
   return {
     runId,
@@ -132,14 +104,16 @@ export async function requestSimulation(
   };
 }
 
+// ── pollForReport ──────────────────────────────────────────────────────────
+
 export async function pollForReport(
   runId: bigint,
-  timeoutMs = 120_000,
+  timeoutMs = 300_000, // 5 minutes time-out
   intervalMs = 5_000,
 ): Promise<{ identity: any; outcome: any }> {
-  const { registry } = readSepoliaBroadcastAddresses();
+  const { registry } = getContractAddresses();
   const rpcUrl = requireEnv("SEPOLIA_RPC_URL");
-  const pub = getPublicClient(rpcUrl, 11155111);
+  const pub = getPublicClient(rpcUrl);
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
@@ -150,7 +124,7 @@ export async function pollForReport(
       args: [runId],
     })) as any;
 
-    // status: 0=Pending, 1=Success, 2=Failed
+    // status: 0 = Pending, 1 = Success, 2 = Failed
     if (identity.status > 0) {
       const outcome = (await pub.readContract({
         address: registry,
@@ -167,9 +141,70 @@ export async function pollForReport(
   }
 
   throw new Error(
-    "⏰ Timeout: CRE did not complete simulation within 2 minutes",
+    "⏰ Timeout: CRE did not complete simulation within 5 minutes",
   );
 }
+
+// ── Token metadata ─────────────────────────────────────────────────────────
+const TOKEN_META: Record<string, { symbol: string; decimals: number }> = {
+  "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2": {
+    symbol: "WETH",
+    decimals: 18,
+  },
+  "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": { symbol: "USDC", decimals: 6 },
+  "0x6B175474E89094C44Da98b954EedeAC495271d0F": { symbol: "DAI", decimals: 18 },
+  "0xdAC17F958D2ee523a2206206994597C13D831ec7": { symbol: "USDT", decimals: 6 },
+  "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599": { symbol: "WBTC", decimals: 8 },
+};
+
+// ── Load strategy names dynamically from cli/.strategies.json ─────────────
+// Returns a map of lowercased address → strategyName
+// Falls back to empty map if file doesn't exist yet
+function loadDeployedStrategyNames(): Record<string, string> {
+  const strategiesPath = path.resolve(__dirname, "../.strategies.json");
+
+  if (!existsSync(strategiesPath)) return {};
+
+  const cache = JSON.parse(readFileSync(strategiesPath, "utf-8"));
+
+  return Object.fromEntries(
+    (cache.strategies ?? []).map((s: any) => [
+      s.address.toLowerCase(),
+      s.strategyName,
+    ]),
+  );
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function tokenLabel(address: string): { symbol: string; decimals: number } {
+  const found = Object.entries(TOKEN_META).find(
+    ([addr]) => addr.toLowerCase() === address.toLowerCase(),
+  );
+  return found ? found[1] : { symbol: "UNKNOWN", decimals: 18 };
+}
+
+function formatToken(amount: bigint, address: string): string {
+  const { symbol, decimals } = tokenLabel(address);
+  const formatted = parseFloat(formatUnits(amount, decimals)).toLocaleString(
+    "en-US",
+    {
+      maximumFractionDigits: 6,
+    },
+  );
+  return `${formatted} ${symbol}`;
+}
+
+function formatGwei(wei: bigint): string {
+  const gwei = parseFloat(formatUnits(wei, 9));
+  return `${gwei.toFixed(2)} gwei (${wei.toLocaleString()} wei)`;
+}
+
+function formatEthCost(wei: bigint): string {
+  return `${parseFloat(formatEther(wei)).toFixed(8)} ETH (${wei.toLocaleString()} wei)`;
+}
+
+// ── printReport ────────────────────────────────────────────────────────────
 
 export function printReport({
   identity,
@@ -178,35 +213,74 @@ export function printReport({
   identity: any;
   outcome: any;
 }) {
-  const status = identity.status === 1 ? "✅ SUCCESS" : "❌ FAILED";
-  const isNumber = (v: any) => v !== undefined && v !== null;
+  const success = identity.status === 1;
+  const status = success ? "✅ SUCCESS" : "❌ REVERTED";
+  const val = (v: any) =>
+    v !== undefined && v !== null ? v.toString() : "N/A";
+  const strategyNames = loadDeployedStrategyNames();
+  const strategyName =
+    strategyNames[identity.strategy.toLowerCase()] ?? "Unknown Strategy";
+
+  const tokenInAddr = identity.tokenIn as string;
+  const tokenOutAddr = identity.tokenOut as string;
+  const { symbol: symbolIn, decimals: dIn } = tokenLabel(tokenInAddr);
+  const { symbol: symbolOut, decimals: dOut } = tokenLabel(tokenOutAddr);
 
   console.log("\n📊 SIMULATION REPORT");
-  console.log("────────────────────────────────────");
-  console.log(`Status:       ${status}`);
-  console.log(`Strategy:     ${identity.strategy}`);
-  console.log(`Caller:       ${identity.caller}`);
+  console.log("────────────────────────────────────────────────────");
+  console.log(`Status:         ${status}`);
+  console.log(`Strategy:       ${strategyName}`);
+  console.log(`                ${identity.strategy}`);
+  console.log(`Caller:         ${identity.caller}`);
   console.log(
-    `Chain:        ${identity.chainId} (fork block ${identity.forkBlock})`,
+    `Network:        Chain ${identity.chainId} — fork block #${Number(identity.forkBlock).toLocaleString()}`,
   );
+
+  console.log(`\n💱 Token Flow:`);
+  console.log(`  Token In:     ${symbolIn.padEnd(8)} ${tokenInAddr}`);
+  console.log(`  Token Out:    ${symbolOut.padEnd(8)} ${tokenOutAddr}`);
   console.log(
-    `Gas Used:     ${isNumber(outcome.gasUsed) ? outcome.gasUsed.toString() : "N/A"}`,
+    `  Amount In:    ${formatToken(BigInt(val(outcome.amountIn)), tokenInAddr)}`,
   );
-  console.log(
-    `Gas Price:    ${isNumber(outcome.effectiveGasPrice) ? outcome.effectiveGasPrice.toString() : "N/A"} wei`,
-  );
-  console.log(
-    `Total Cost:   ${isNumber(outcome.totalCostInTokenIn) ? outcome.totalCostInTokenIn.toString() : "N/A"}`,
-  );
-  console.log(
-    `Amount In:    ${isNumber(outcome.amountIn) ? outcome.amountIn.toString() : "N/A"}`,
-  );
-  console.log(
-    `Amount Out:   ${isNumber(outcome.amountOut) ? outcome.amountOut.toString() : "N/A"}`,
-  );
-  if (identity.status === 2) {
-    console.log(`Revert Hash:  ${outcome.revertReasonHash ?? "N/A"}`);
+
+  if (success) {
+    console.log(
+      `  Amount Out:   ${formatToken(BigInt(val(outcome.amountOut)), tokenOutAddr)}`,
+    );
+
+    // Exchange rate
+    const amtIn = parseFloat(formatUnits(BigInt(val(outcome.amountIn)), dIn));
+    const amtOut = parseFloat(
+      formatUnits(BigInt(val(outcome.amountOut)), dOut),
+    );
+    if (amtIn > 0) {
+      const rate = (amtOut / amtIn).toLocaleString("en-US", {
+        maximumFractionDigits: 4,
+      });
+      console.log(`  Rate:         1 ${symbolIn} = ${rate} ${symbolOut}`);
+    }
   }
-  console.log(`Explorer:     ${identity.explorerUrl}`);
-  console.log("────────────────────────────────────");
+
+  console.log(`\n⛽ Gas Metrics:`);
+  console.log(
+    `  Gas Used:     ${BigInt(val(outcome.gasUsed)).toLocaleString()} units`,
+  );
+  console.log(
+    `  Gas Price:    ${formatGwei(BigInt(val(outcome.effectiveGasPrice)))}`,
+  );
+  console.log(
+    `  Total Cost:   ${formatEthCost(BigInt(val(outcome.totalCostInTokenIn)))}`,
+  );
+
+  if (!success) {
+    console.log(`\n⚠️  Revert:`);
+    console.log(`  Reason Hash:  ${val(outcome.revertReasonHash)}`);
+  }
+
+  console.log(`\n🔗 Links:`);
+  console.log(`  vNet Explorer: ${identity.explorerUrl}`);
+  console.log(
+    `  Registry:      https://sepolia.etherscan.io/address/${requireEnv("REGISTRY_ADDRESS")}`,
+  );
+  console.log("────────────────────────────────────────────────────");
 }
