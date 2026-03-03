@@ -1,0 +1,16 @@
+{
+  "evm": [
+    {
+      "chainSelectorName": "ethereum-testnet-sepolia",
+      "registryAddress": "0x....",
+      "jobQueueAddress": "0x....",
+      "gasLimit": "2000000"
+    },
+    {
+      "chainSelectorName": "ethereum-mainnet",
+      "executorAddress": "0x....",
+      "executionEthAmount": "100000000000000000",
+      "gasLimit": "500000"
+    }
+  ]
+}
