@@ -1,17 +1,18 @@
 import { cre, getNetwork, Runner } from "@chainlink/cre-sdk";
 import { keccak256, toHex } from "viem";
-import type { Config } from "./Config";
+import type { Config } from "../Config";
 import { onSimulationQueued } from "./logCallback";
 
 export const initWorkflow = (config: Config) => {
+  const sepoliaConfig = config.evm[0];
   const network = getNetwork({
     chainFamily: "evm",
-    chainSelectorName: config.chainSelectorName,
+    chainSelectorName: sepoliaConfig.chainSelectorName,
     isTestnet: true,
   });
 
   if (!network) {
-    throw new Error(`Network not found: ${config.chainSelectorName}`);
+    throw new Error(`Network not found: ${sepoliaConfig.chainSelectorName}`);
   }
 
   const evmClient = new cre.capabilities.EVMClient(
@@ -24,7 +25,7 @@ export const initWorkflow = (config: Config) => {
   );
 
   const logTrigger = evmClient.logTrigger({
-    addresses: [config.registryAddress],
+    addresses: [sepoliaConfig.registryAddress],
     topics: [
       { values: [simulationQueuedTopic] }, // topic0 — event signature
     ],
