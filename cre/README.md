@@ -160,8 +160,8 @@ Defines contract addresses and gas limits for both chains the workflows interact
   "evm": [
     {
       "chainSelectorName": "ethereum-testnet-sepolia",
-      "registryAddress": "0xcE577fCdb5d565107763bdCaEf772A737c69c691",
-      "jobQueueAddress": "0xC62d7202387B2A9c6AdFc07E4f9AC18fC17b8C24",
+      "registryAddress": "0x6C60a2dEbD7a0406fB08133c44FC0bAeB2424e7d",
+      "jobQueueAddress": "0x9E3EA28542fD36B062ac768037fFb93708529Ad1",
       "gasLimit": "2000000"
     },
     {

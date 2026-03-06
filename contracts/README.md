@@ -35,8 +35,8 @@ contracts/
 
 | Contract             | Address                                                                                                                         |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `SimulationRegistry` | [`0x2f6B3Cf334D373EF5FAd2E7e8CB3Bd62370Af440`](https://sepolia.etherscan.io/address/0x2f6B3Cf334D373EF5FAd2E7e8CB3Bd62370Af440) |
-| `SimulationJobQueue` | [`0xf40ABaC94354195cD8789C943d7d4a2914Fa410e`](https://sepolia.etherscan.io/address/0xf40ABaC94354195cD8789C943d7d4a2914Fa410e) |
+| `SimulationRegistry` | [`0x6C60a2dEbD7a0406fB08133c44FC0bAeB2424e7d`](https://sepolia.etherscan.io/address/0x6C60a2dEbD7a0406fB08133c44FC0bAeB2424e7d) |
+| `SimulationJobQueue` | [`0x9E3EA28542fD36B062ac768037fFb93708529Ad1`](https://sepolia.etherscan.io/address/0x9E3EA28542fD36B062ac768037fFb93708529Ad1) |
 
 These are shared — anyone can use them. See [Custom Deployment](#custom-deployment) if you want your own.
 

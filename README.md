@@ -106,8 +106,8 @@ Each directory has its own `README.md` covering setup, internals, and configurat
 
 | Contract             | Address                                                                                                                         |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `SimulationRegistry` | [`0x2f6B3Cf334D373EF5FAd2E7e8CB3Bd62370Af440`](https://sepolia.etherscan.io/address/0x2f6B3Cf334D373EF5FAd2E7e8CB3Bd62370Af440) |
-| `SimulationJobQueue` | [`0xf40ABaC94354195cD8789C943d7d4a2914Fa410e`](https://sepolia.etherscan.io/address/0xf40ABaC94354195cD8789C943d7d4a2914Fa410e) |
+| `SimulationRegistry` | [`0x6C60a2dEbD7a0406fB08133c44FC0bAeB2424e7d`](https://sepolia.etherscan.io/address/0x6C60a2dEbD7a0406fB08133c44FC0bAeB2424e7d) |
+| `SimulationJobQueue` | [`0x9E3EA28542fD36B062ac768037fFb93708529Ad1`](https://sepolia.etherscan.io/address/0x9E3EA28542fD36B062ac768037fFb93708529Ad1) |
 
 These are shared — anyone can use them. If you want your own isolated deployment, see [`contracts/README.md`](./contracts/README.md).
 
@@ -139,7 +139,7 @@ Three example strategies are included out of the box:
 ```bash
 git clone https://github.com/0xEunum/defi-strategy-profiler
 cd defi-strategy-profiler
-npm run install:all
+npm run install
 ```
 
 ### 2. Configure environment
