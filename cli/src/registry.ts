@@ -67,8 +67,8 @@ function getPublicClient(rpcUrl: string) {
   });
 }
 
-const JOB_ENQUEUED_TOPIC = keccak256(
-  toBytes("JobEnqueued(uint256,address,address,string)"),
+const SIMULATION_QUEUED_TOPIC = keccak256(
+  toBytes("SimulationQueued(uint256,address,address,string)"),
 );
 
 // ── requestSimulation ──────────────────────────────────────────────────────
@@ -91,9 +91,11 @@ export async function requestSimulation(
 
   const receipt = await pub.waitForTransactionReceipt({ hash });
 
-  const jobLog = receipt.logs.find((l) => l.topics[0] === JOB_ENQUEUED_TOPIC);
-  if (!jobLog) throw new Error("JobEnqueued event not found in receipt");
-  const runId = BigInt(jobLog.topics[1] ?? "0x0");
+  const simLog = receipt.logs.find(
+    (l) => l.topics[0] === SIMULATION_QUEUED_TOPIC,
+  );
+  if (!simLog) throw new Error("SimulationQueued event not found in receipt");
+  const runId = BigInt(simLog.topics[1] ?? "0x0");
 
   return {
     runId,
