@@ -1,0 +1,19 @@
+{
+  "name": "defi-strategy-profiler-cre",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chainlink CRE workflows for DeFi Strategy Profiler — listener and executor pipelines.",
+  "main": "dist/main.js",
+  "scripts": {
+    "postinstall": "bunx cre-setup",
+    "listener": "cre workflow simulate listener-workflow/ --env ../.env --broadcast",
+    "executor": "cre workflow simulate executor-workflow/ --env ../.env --broadcast"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@chainlink/cre-sdk": "^1.1.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.21"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "defi-strategy-profiler-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Solidity contracts for DeFi Strategy Profiler — SimulationRegistry, SimulationJobQueue, and strategy implementations.",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "install": "forge install"
+  },
+  "keywords": [
+    "solidity",
+    "foundry",
+    "chainlink",
+    "tenderly",
+    "defi"
+  ],
+  "license": "ISC",
+  "type": "commonjs"
+}

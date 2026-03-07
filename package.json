@@ -1,15 +1,29 @@
 {
-  "name": "@shadow-shield/core",
+  "name": "defi-strategy-profiler",
   "version": "1.0.0",
   "private": true,
-  "description": "DeFi security tool using Chainlink Runtime Environment (CRE) and Tenderly Virtual TestNets to simulate transactions with time-travel logic.",
-  "author": "0xEunum <github.com/0xEunum>",
+  "description": "DeFi Strategy Profiler using Chainlink CRE and Tenderly Virtual TestNets to simulate strategies and store signed on-chain reports.",
+  "author": "Mohd Muzammil <github.com/0xEunum>",
   "workspaces": [
-    "cre/shadow-workflow"
+    "cre",
+    "frontend",
+    "cli",
+    "contracts"
   ],
   "scripts": {
-    "install:all": "npm install",
-    "cre:simulate": "npm run simulate --workspace=cre/shadow-workflow"
+    "cli:setup": "npm run setup --workspace=cli",
+    "cli:setup:new": "npm run setup:new --workspace=cli",
+    "cli:deploy:0": "npm run deploy:0 --workspace=cli",
+    "cli:deploy:1": "npm run deploy:1 --workspace=cli",
+    "cli:deploy:2": "npm run deploy:2 --workspace=cli",
+    "cli:provision:0": "npm run provision:0 --workspace=cli",
+    "cli:provision:1": "npm run provision:1 --workspace=cli",
+    "cli:provision:2": "npm run provision:2 --workspace=cli",
+    "cre:listener": "npm run listener --workspace=cre",
+    "cre:executor": "npm run executor --workspace=cre",
+    "frontend:dev": "npm run dev --workspace=frontend",
+    "frontend:build": "npm run build --workspace=frontend",
+    "frontend:preview": "npm run preview --workspace=frontend"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -18,9 +32,8 @@
     "chainlink",
     "cre",
     "tenderly",
-    "security",
     "defi",
     "simulation",
-    "shadow-shield"
+    "strategy-profiler"
   ]
 }

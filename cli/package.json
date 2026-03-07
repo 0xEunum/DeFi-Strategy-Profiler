@@ -1,0 +1,27 @@
+{
+  "name": "defi-strategy-profiler-cli",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CLI for DeFi Strategy Profiler — vNet setup, strategy deployment, and simulation requests.",
+  "scripts": {
+    "setup": "tsx scripts/createVnet.ts",
+    "setup:new": "tsx scripts/createVnet.ts --new",
+    "provision:0": "tsx scripts/provision.ts 0",
+    "provision:1": "tsx scripts/provision.ts 1",
+    "provision:2": "tsx scripts/provision.ts 2",
+    "deploy:0": "tsx scripts/deployStrategy.ts 0",
+    "deploy:1": "tsx scripts/deployStrategy.ts 1",
+    "deploy:2": "tsx scripts/deployStrategy.ts 2"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "js-yaml": "^4.1.1",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}
