@@ -50,7 +50,7 @@ export default function Landing() {
           initial="hidden"
           animate="show"
           variants={stagger}
-          className="container relative max-w-3xl text-center"
+          className="container relative max-w-3/4 text-center"
         >
           <motion.div
             variants={fadeUp}
