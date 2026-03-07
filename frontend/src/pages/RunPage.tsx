@@ -76,6 +76,21 @@ export default function RunPage() {
     retry: 1,
   });
 
+  // ── Dynamic ETH price from CoinGecko (free, no API key) ──
+  const ethPrice = useQuery({
+    queryKey: ["ethPrice"],
+    queryFn: async () => {
+      const res = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
+      );
+      if (!res.ok) throw new Error("Failed to fetch ETH price");
+      const data = await res.json();
+      return data.ethereum.usd as number;
+    },
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
   const isLoading = identity.isLoading || outcome.isLoading;
   const isError = identity.isError || outcome.isError;
 
@@ -165,8 +180,18 @@ export default function RunPage() {
       : 0n;
   const totalGasCostEth =
     totalGasCostWei > 0n ? weiToEth(totalGasCostWei) : "0";
+
+  // ── Dynamic ETH price vars ──
+  const ethPriceUsd = ethPrice.data ?? 2000;
+  const ethPriceLabel = ethPrice.isLoading
+    ? "…"
+    : `$${ethPriceUsd.toLocaleString()}`;
+
+  // ── Use dynamic price for gas cost USD ──
   const totalGasCostUsd =
-    totalGasCostWei > 0n ? weiToUsd(totalGasCostWei) : "0.00";
+    totalGasCostWei > 0n
+      ? ((Number(totalGasCostWei) / 1e18) * ethPriceUsd).toFixed(2)
+      : "0.00";
 
   const decodedRevert =
     hasFailed && !isZeroBytes32(out.revertReasonHash)
@@ -251,7 +276,8 @@ export default function RunPage() {
           ) : (
             <Coins className="h-3.5 w-3.5" />
           )}
-          {showUsd ? "USD (~$1990/ETH)" : "ETH"}
+          {/* ── Dynamic price label ── */}
+          {showUsd ? `USD (~${ethPriceLabel}/ETH)` : "ETH"}
           <span className="text-muted-foreground/50 ml-1">tap to switch</span>
         </button>
 
@@ -402,8 +428,11 @@ export default function RunPage() {
               <Fuel className="h-4 w-4 text-warning" />
               <h3 className="text-sm font-semibold">Gas Metrics</h3>
             </div>
+            {/* ── Dynamic price label ── */}
             <span className="text-[10px] font-mono text-muted-foreground/50">
-              {showUsd ? "Showing USD (~$2,500/ETH)" : "Showing ETH values"}
+              {showUsd
+                ? `Showing USD (~${ethPriceLabel}/ETH)`
+                : "Showing ETH values"}
             </span>
           </div>
 
@@ -435,7 +464,8 @@ export default function RunPage() {
               value={
                 out.effectiveGasPrice > 0n
                   ? showUsd
-                    ? `$${ethToUsd(Number(weiToGwei(out.effectiveGasPrice)) / 1e9)}`
+                    ? // ── Dynamic price for gas price USD conversion ──
+                      `$${((Number(weiToGwei(out.effectiveGasPrice)) / 1e9) * ethPriceUsd).toFixed(6)}`
                     : `${weiToGwei(out.effectiveGasPrice)} gwei`
                   : "—"
               }
