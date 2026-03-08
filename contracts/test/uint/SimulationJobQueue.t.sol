@@ -4,13 +4,6 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {SimulationJobQueue} from "../../src/SimulationJobQueue.sol";
 
-/// @notice Unit tests for SimulationJobQueue.
-///         No fork needed — forwarder is pranked directly.
-///
-/// @dev    SimulationJobQueue is the CRE-verified handoff between
-///         listener-workflow and executor-workflow.
-///         wf-listener writes JobReports here via onReport().
-///         executor-workflow triggers off JobEnqueued events.
 contract SimulationJobQueueTest is Test {
     // ── Contracts ──────────────────────────────────────────────────────────
     SimulationJobQueue queue;
@@ -29,16 +22,17 @@ contract SimulationJobQueueTest is Test {
     // Helpers
     // ──────────────────────────────────────────────────────────────────────
 
-    /// @dev ABI-encodes a JobReport. Must match SimulationJobQueue.JobReport
-    ///      struct field order exactly — same rule as SimulationReport in Registry.
+    /// @dev Flat abi.encode — matches abi.decode(report, (uint256, address, address, string))
+    ///      in SimulationJobQueue._processReport. Do NOT wrap in a JobReport struct:
+    ///      abi.encode(Struct{...}) adds a 32-byte dynamic-tuple offset prefix that
+    ///      shifts every field by one slot, causing silent misreads on the decode side.
     function _encodeJobReport(uint256 runId, address strategy, address caller, string memory explorerUrl)
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encode(
-            SimulationJobQueue.JobReport({runId: runId, strategy: strategy, caller: caller, explorerUrl: explorerUrl})
-        );
+        // ✅ flat encode — byte-for-byte identical to encodeAbiParameters in wf-listener/main.ts
+        return abi.encode(runId, strategy, caller, explorerUrl);
     }
 
     /// @dev Convenience: prank as forwarder and submit a job report.
@@ -103,12 +97,10 @@ contract SimulationJobQueueTest is Test {
         SimulationJobQueue.Job memory job1 = queue.getJob(1);
         SimulationJobQueue.Job memory job2 = queue.getJob(2);
 
-        // Job 1 unchanged
         assertEq(job1.strategy, STRATEGY);
         assertEq(job1.caller, CALLER);
         assertEq(job1.runId, 1);
 
-        // Job 2 independently stored
         assertEq(job2.strategy, strategyB);
         assertEq(job2.caller, callerB);
         assertEq(job2.runId, 2);
@@ -131,7 +123,6 @@ contract SimulationJobQueueTest is Test {
     function test_onReport_reverts_onDuplicateRunId() public {
         _submitDefaultJob(1);
 
-        // Same runId submitted again (e.g., listener-workflow retry)
         vm.prank(FORWARDER);
         vm.expectRevert(SimulationJobQueue.SimulationJobQueue__JobAlreadyEnqueued.selector);
         queue.onReport(bytes(""), _encodeJobReport(1, STRATEGY, CALLER, "https://x"));
@@ -144,7 +135,6 @@ contract SimulationJobQueueTest is Test {
     }
 
     function test_onReport_reverts_ifNotForwarder() public {
-        // Anyone other than the forwarder should be rejected by ReceiverTemplate
         vm.prank(address(0xDEAD));
         vm.expectRevert();
         queue.onReport(bytes(""), _encodeJobReport(1, STRATEGY, CALLER, "https://x"));
@@ -157,7 +147,6 @@ contract SimulationJobQueueTest is Test {
     function test_getJob_returnsEmptyForUnknownRunId() public view {
         SimulationJobQueue.Job memory job = queue.getJob(999);
 
-        // Unknown job: all fields zero/empty
         assertEq(job.runId, 0);
         assertEq(job.strategy, address(0));
         assertEq(job.caller, address(0));
@@ -196,7 +185,6 @@ contract SimulationJobQueueTest is Test {
 
         _submitJob(runId, STRATEGY, CALLER, "https://x");
 
-        // Any second submission with same runId must revert
         vm.prank(FORWARDER);
         vm.expectRevert(SimulationJobQueue.SimulationJobQueue__JobAlreadyEnqueued.selector);
         queue.onReport(bytes(""), _encodeJobReport(runId, STRATEGY, CALLER, "https://x"));
@@ -209,7 +197,6 @@ contract SimulationJobQueueTest is Test {
             _submitJob(i, STRATEGY, CALLER, "https://x");
         }
 
-        // Verify no job overwrote another
         for (uint256 i = 1; i <= count; i++) {
             SimulationJobQueue.Job memory job = queue.getJob(i);
             assertEq(job.runId, i);
