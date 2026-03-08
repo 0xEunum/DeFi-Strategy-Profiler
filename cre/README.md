@@ -25,23 +25,41 @@ cre/
 
 ---
 
+## No Deployment Required
+
+CRE workflows are not deployed like smart contracts. You run them directly with the CRE CLI — they are TypeScript processes that connect to the Chainlink DON, process a triggered event, and exit.
+
+`npm run listener` runs this under the hood:
+
+```bash
+cre workflow simulate listener-workflow/ --env ../.env --broadcast
+```
+
+`npm run executor` runs:
+
+```bash
+cre workflow simulate executor-workflow/ --env ../.env --broadcast
+```
+
+The `--broadcast` flag is already included in both scripts — workflows submit real on-chain transactions, not dry runs. Remove `--broadcast` from `package.json` only if you want to test workflow logic without spending gas.
+
+---
+
 ## Commands
 
 > Run from inside `cre/` — or use the `npm run cre:*` prefix from the monorepo root.
 
 ```bash
 # ── From monorepo root ────────────────────────────────────────────
-npm run cre:listener       # Start wf-listener workflow
-npm run cre:executor       # Start wf-executor workflow
+npm run cre:listener       # cre workflow simulate listener-workflow/ --env .env --broadcast
+npm run cre:executor       # cre workflow simulate executor-workflow/ --env .env --broadcast
 
 # ── From inside cre/ ─────────────────────────────────────────────
-npm run listener           # Start wf-listener workflow
-npm run executor           # Start wf-executor workflow
+npm run listener           # cre workflow simulate listener-workflow/ --env ../.env --broadcast
+npm run executor           # cre workflow simulate executor-workflow/ --env ../.env --broadcast
 ```
 
-Both workflows are long-running processes — run them in separate terminals. Start `cre:listener` first so no `SimulationQueued` events are missed between provisioning and executor startup.
-
-> Both workflows must be running before or immediately after `npm run cli:provision:*` — the CRE CLI picks up events from the point it starts listening.
+Run `listener-workflow` first — it picks up the `SimulationQueued` event and writes to `SimulationJobQueue`. Once it completes, run `executor-workflow` — it picks up the `JobEnqueued` event and writes the final proof to `SimulationRegistry`.
 
 ---
 
@@ -63,7 +81,7 @@ Both workflows are long-running processes — run them in separate terminals. St
 
 **Why it exists:**
 
-`SimulationQueued` is emitted by raw user input — anyone can call `requestSimulation()` with a malicious or malformed strategy address. `wf-listener` acts as a validation + attestation layer. By the time `JobEnqueued` fires, the job has been verified and signed by the Chainlink DON.
+`SimulationQueued` is emitted by raw user input — anyone can call `requestSimulation()` with a malicious or malformed strategy address. `listener-workflow` acts as a validation + attestation layer. By the time `JobEnqueued` fires, the job has been verified and signed by the Chainlink DON.
 
 ---
 
@@ -87,7 +105,7 @@ Both workflows are long-running processes — run them in separate terminals. St
 | 9              | `consensus`                | `prepareReportRequest()` — DON signs the encoded `SimulationReport`                                                                                                                                   |
 | 10             | `EVMClient.writeReport`    | Writes signed `SimulationReport` to `SimulationRegistry.writeReport(runId, report)` via CRE Forwarder on Sepolia                                                                                      |
 
-> **Note on `consensus`:** The executor uses `consensusIdenticalAggregation` inside both `vnetRpc()` and `pollVnetReceipt()` helper functions — all DON nodes must observe the same HTTP response before the result is accepted. This means `strategy.execute()` output is consensus-verified, not just from a single node.
+> **Note on `consensus`:** `executor-workflow` uses `consensusIdenticalAggregation` inside both `vnetRpc()` and `pollVnetReceipt()` helper functions — all DON nodes must observe the same HTTP response before the result is accepted. This means `strategy.execute()` output is consensus-verified, not just from a single node.
 
 ---
 
@@ -106,46 +124,19 @@ The two-workflow design uses `SimulationJobQueue` as a **CRE-gated message bus**
 ```
 SimulationQueued  (untrusted user input)
       ↓
-  wf-listener  validates + encodes JobReport
+  listener-workflow  validates + encodes JobReport
       ↓
   SimulationJobQueue.onReport()  — CRE Forwarder signature verified on-chain
       ↓
   JobEnqueued  (CRE-attested, trusted)
       ↓
-  wf-executor  safe to execute
+  executor-workflow  safe to execute
 ```
 
 `SimulationJobQueue` enforces two guarantees on-chain:
 
 - **Forwarder-gated** — `ReceiverTemplate` only accepts calls from the CRE Forwarder address
-- **Replay protection** — `s_jobExists[runId]` rejects duplicate enqueues from `wf-listener` retries
-
-A single workflow listening directly on `SimulationQueued` and calling `strategy.execute()` immediately would be unsafe:
-
-| Risk                       | With single workflow            |
-| -------------------------- | ------------------------------- |
-| Malicious strategy address | Executor acts on raw user input |
-| Duplicate execution        | No replay protection            |
-| Malformed explorerUrl      | No validation before execution  |
-
-The two-workflow design uses `SimulationJobQueue` as a **CRE-gated message bus**:
-
-```
-SimulationQueued  (untrusted user input)
-      ↓
-  wf-listener  validates + encodes JobReport
-      ↓
-  SimulationJobQueue.onReport()  — CRE Forwarder signature verified on-chain
-      ↓
-  JobEnqueued  (CRE-attested, trusted)
-      ↓
-  wf-executor  safe to execute
-```
-
-`SimulationJobQueue` enforces two guarantees on-chain:
-
-- **Forwarder-gated** — `ReceiverTemplate` only accepts calls from the CRE Forwarder address
-- **Replay protection** — `s_jobExists[runId]` rejects duplicate enqueues from `wf-listener` retries
+- **Replay protection** — `s_jobExists[runId]` rejects duplicate enqueues from `listener-workflow` retries
 
 ---
 
@@ -195,24 +186,13 @@ staging-settings:
 
 ---
 
-## Running Workflows
+## CRE Target
+
+The active CRE target is controlled by `CRE_TARGET` in `root/.env`.
 
 ```bash
-# From root — terminal 1
-npm run cre:listener
-
-# From root — terminal 2
-npm run cre:executor
-```
-
-Or directly via CRE CLI from the `cre/` directory:
-
-```bash
-# listener
-npm run listener
-
-# executor
-npm run executor
+CRE_TARGET=staging-settings    # default — uses Tenderly vNet
+CRE_TARGET=production-settings # production — no vNet, mainnet only
 ```
 
 ---
@@ -226,14 +206,3 @@ By default both workflows use the shared deployed contracts. If you deploy your 
 3. Update `REGISTRY_ADDRESS` + `JOB_QUEUE_ADDRESS` in `root/.env`
 
 No changes to `project.yaml` or workflow code are needed.
-
----
-
-## CRE Target
-
-The active CRE target is controlled by `CRE_TARGET` in `root/.env`.
-
-```bash
-CRE_TARGET=staging-settings    # default — uses Tenderly vNet
-CRE_TARGET=production-settings # production — no vNet, mainnet only
-```
