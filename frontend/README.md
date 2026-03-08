@@ -1,73 +1,74 @@
-# Welcome to your Lovable project
+# Frontend
 
-## Project info
+React + Vite frontend for the DeFi Strategy Profiler. Displays on-chain simulation reports stored by `SimulationRegistry` on Sepolia.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+**Live:** https://defi-strategy-profiler.vercel.app/
+**Demo:** https://youtu.be/F90Hq8e9ArA?si=ljiXZ2VMSBpUbdG1
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## What it shows
 
-**Use Lovable**
+Each simulation run is accessible at `/run/[runId]` and displays:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Strategy name and contract address
+- Token flow — amount in, amount out, effective exchange rate
+- Gas used, gas price, total ETH cost
+- Simulation status — Success or Reverted (with revert reason hash)
+- Tenderly vNet explorer link for full transaction trace
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## Stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **React 18** + **TypeScript**
+- **Vite** — dev server and bundler
+- **Tailwind CSS** + **shadcn/ui** — styling and components
+- **wagmi / viem** — on-chain reads from `SimulationRegistry` on Sepolia
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## Structure
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```
+frontend/
+├── src/
+│   ├── assets/         Static assets
+│   ├── components/     UI components
+│   ├── hooks/          Custom React hooks (contract reads)
+│   ├── lib/            Utilities and ABI helpers
+│   ├── pages/          Route-level page components
+│   └── test/           Component and hook tests
+├── public/
+├── index.html
+├── vite.config.ts
+├── tailwind.config.ts
+└── vitest.config.ts
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Local Setup
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+# From repo root
+cd frontend
+
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Open http://localhost:8080 — navigate to `/run/[runId]` with a valid run ID from Sepolia.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## Deployment
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The frontend is deployed on Vercel. To deploy your own:
 
-## What technologies are used for this project?
+1. Push the repo to GitHub
+2. Import the project on [Vercel](https://vercel.com)
+3. Set the root directory to `frontend`
+4. Vercel auto-detects Vite — no extra config needed
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Custom domain: Vercel dashboard → Project → Settings → Domains.
